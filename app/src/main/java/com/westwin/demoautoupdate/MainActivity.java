@@ -2,20 +2,23 @@ package com.westwin.demoautoupdate;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Environment;
-import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 
@@ -28,45 +31,7 @@ public class MainActivity extends AppCompatActivity {
             Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
 
-    private TextView mVersionText;
-
-    private String mUpdateMessage;
-    private TextView mUpdateText;
     private UpdateManager mUpdateManager;
-
-    private int mRunCount = 0;
-    private int mExpiredRunCount = 30;
-    private boolean mCheckUpdateFlag = true;
-    private Handler nHandler = new Handler();
-
-    private Runnable mTask = new Runnable() {
-        public void run() {
-
-            mRunCount++;
-
-            if (mCheckUpdateFlag && mRunCount <= mExpiredRunCount) {
-                nHandler.postDelayed(this, 1000);
-                int newServerVersionCode = mUpdateManager.getServerVersionCode();
-                if (newServerVersionCode == -1) {
-                    Log.d("nutch", "continue and wait for new version code ...");
-                } else if (newServerVersionCode == 0) {
-                    Log.d("nutch", "continue and wait for download ...");
-                    mUpdateMessage += ", version get";
-                    mUpdateText.setText(mUpdateMessage);
-                    // larger the expired time for download
-                    mExpiredRunCount = 60;
-                } else {
-                    mCheckUpdateFlag = false;
-                    mUpdateMessage += ", server version " + newServerVersionCode;
-                    mUpdateText.setText(mUpdateMessage);
-                    if (newServerVersionCode > mUpdateManager.getVersionCode()) {
-                        // updateApk();
-                        updateApkSilently();
-                    }
-                }
-            }
-        }
-    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,30 +39,54 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         verifyStoragePermissions(this);
-        writeTest();
-
-        String version = null;
-        try {
-            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            version = pInfo.versionName;
-        } catch (Exception ex) {
+        FileHelper.writeFileContent(Environment.getExternalStorageDirectory(), "aaa.txt", "bbbb");
+        String content = FileHelper.getFileConent(Environment.getExternalStorageDirectory(), "aaa.txt");
+        TextView helloTextView = (TextView) findViewById(R.id.helloTextView);
+        if (helloTextView != null) {
+            helloTextView.setText(content);
         }
-        mUpdateManager = new UpdateManager(version);
 
-        mVersionText = (TextView) findViewById(R.id.versionTextView);
-        mVersionText.setText(Integer.toString(mUpdateManager.getVersionCode()));
+        try {
+            mUpdateManager =
+                    new UpdateManager(
+                            "http://www.mopinfo.com/app",
+                            Common.APK_VERSION_FILE_NAME,
+                            Common.APK_SERVER_FILE_NAME,
+                            Common.APK_LOCAL_FILE_NAME);
+            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            if (mUpdateManager.isNewVersionFound(pInfo)) {
+                //dialog();
+            } else {
+                //mUpdateManager.start();
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
 
-        mUpdateMessage = "Init";
-        mUpdateText = (TextView) findViewById(R.id.updateTextView);
-        mUpdateText.setText(mUpdateMessage);
-
-        nHandler.postDelayed(mTask, 1000);
-        mUpdateManager.start();
+    protected void dialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage("发现新版本，是否更新 ?");
+        builder.setTitle("提示");
+        builder.setPositiveButton("确认", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                System.exit(0);
+            }
+        });
+        builder.setNegativeButton("取消", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+        builder.create().show();
     }
 
     /**
      * Checks if the app has permission to write to device storage
-     *
+     * <p/>
      * If the app does not has permission then the user will be prompted to grant permissions
      *
      * @param activity
@@ -118,50 +107,20 @@ public class MainActivity extends AppCompatActivity {
     /**
      * 安装应用
      */
-    public void updateApk(){
+    public void updateApk() {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(
-                Uri.fromFile(new File(Environment.getExternalStorageDirectory(), Common.APK_FILE_NAME)),
+                Uri.fromFile(new File(Environment.getExternalStorageDirectory(), Common.APK_LOCAL_FILE_NAME)),
                 "application/vnd.android.package-archive");
         startActivity(intent);
     }
 
     private void updateApkSilently() {
         try {
-            String apkFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + Common.APK_FILE_NAME;
-            Runtime.getRuntime().exec(new String[] {"su", "-c", "pm install -r " + apkFilePath});
-            mUpdateMessage += ", install update";
-            mUpdateText.setText(mUpdateMessage);
+            String apkFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + Common.APK_LOCAL_FILE_NAME;
+            Runtime.getRuntime().exec(new String[]{"su", "-c", "pm install -r " + apkFilePath});
         } catch (IOException e) {
             Log.e("nutch", "no root");
-        }
-    }
-
-    private void writeTest() {
-        FileOutputStream fos = null;
-        try {
-            String state = Environment.getExternalStorageState();
-            File file = new File(Environment.getExternalStorageDirectory(), "aaaa.txt");
-            if (file.exists()) {
-                // 如果文件存在 则删除
-                file.delete();
-            } else {
-                file.createNewFile();
-            }
-            fos = new FileOutputStream(file);
-            byte[] bytes = "aaaaaaaaaaaaaaa".getBytes(Charset.forName("UTF8"));
-            fos.write(bytes);
-            fos.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 }
