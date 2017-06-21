@@ -42,11 +42,13 @@ public class UpdateManager {
 
     public boolean isNewVersionFound(PackageInfo packageInfo) {
         try {
-            String currentVersionStr = FileHelper.getFileConent(
+            String currentVersionStr = FileHelper.readFileConent(
                     Environment.getExternalStorageDirectory(),
                     Common.APK_VERSION_FILE_NAME);
             int currentVesion = Integer.parseInt(currentVersionStr);
-            String serverVersionStr = FileHelper.getFileConent(Environment.getExternalStorageDirectory(), mVersionFileName);
+            String serverVersionStr = FileHelper.readFileConent(
+                    Environment.getExternalStorageDirectory(),
+                    mVersionFileName);
             int serverVesion = Integer.parseInt(serverVersionStr);
             if (serverVesion > currentVesion) {
                 return true;
