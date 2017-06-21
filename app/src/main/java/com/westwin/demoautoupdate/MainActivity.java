@@ -40,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
         verifyStoragePermissions(this);
         FileHelper.writeFileContent(Environment.getExternalStorageDirectory(), "aaa.txt", "bbbb");
-        String content = FileHelper.getFileConent(Environment.getExternalStorageDirectory(), "aaa.txt");
+        String content = FileHelper.readFileConent(Environment.getExternalStorageDirectory(), "aaa.txt");
         TextView helloTextView = (TextView) findViewById(R.id.helloTextView);
         if (helloTextView != null) {
             helloTextView.setText(content);

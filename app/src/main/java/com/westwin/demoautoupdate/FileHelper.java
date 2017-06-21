@@ -53,7 +53,7 @@ public class FileHelper {
      * @param fileName
      * @return
      */
-    public static String getFileConent(File path, String fileName) {
+    public static String readFileConent(File path, String fileName) {
         FileInputStream fin = null;
         try {
             String state = Environment.getExternalStorageState();
